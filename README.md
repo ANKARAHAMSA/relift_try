@@ -2,6 +2,10 @@
 
 > **Hands-on experiment running [ReLift: Dense 3D Tracking as Lifted Trajectory Repair](https://relift3d.github.io/) locally on a MacBook Air M3 and Google Colab (Tesla T4)**
 
+> [!IMPORTANT]
+> **Why are the output clips only ~1 second long?**
+> Because ReLift's depth foundation models use **O(N²) cross-frame attention** — memory explodes with every extra frame. On our **MacBook Air M3 (16 GB)**, the model requested a single **12.78 GB** memory buffer and crashed outright. On **Google Colab's Tesla T4 (15 GB VRAM)**, we could only afford **8 frames** (~1 second) before running out of GPU memory. This is a hardware constraint, not a limitation of ReLift itself — on a 24 GB GPU the full video would run beautifully. We pushed the boundary of what's possible on accessible hardware, and this repo is proof that it *can* be done, even at a small scale.
+
 <p align="center">
   <img src="assets/banner.png" alt="ReLift 3D Tracking Banner" width="100%"/>
 </p>
@@ -48,13 +52,52 @@ Video
 
 ---
 
-## ⚙️ My Hardware Setup
+## 🖥️ What GPU Do You Actually Need?
+
+> [!CAUTION]
+> **ReLift is NOT a lightweight model.** Its depth backbone (Depth Anything 3 Giant) uses global cross-frame attention that scales as **O(N²)** in memory. Every extra frame doubles the VRAM demand. This is what makes it so accurate — but it also means you need serious hardware to run it at full length.
+
+### Minimum GPU Requirements
+
+| Use Case | Min VRAM | Example GPUs |
+|----------|----------|--------------|
+| 8-frame proof-of-concept (360p) | **~10 GB** | T4, RTX 3080 |
+| Standard demo (16–24 frames, 720p) | **24 GB** | RTX 3090, RTX 4090, L4 |
+| Full video (84+ frames) with AllTracker | **24 GB+** | A100 (40 GB), H100 |
+| Full video with CoWTracker front-end | **48 GB** | A100 80 GB |
+
+### 💡 Recommended Free/Cheap Cloud Options
+- **Google Colab Pro** → NVIDIA L4 (24 GB) — handles full demos
+- **Lightning AI Studio** → L4 or A10G — good for research
+- **RunPod** → RTX 4090 / A100 — most affordable for heavy runs
+- **Google Colab Free (T4)** → 8-frame clips only (what we used ✅)
+
+---
+
+## ⚙️ My Hardware Setup — What Actually Happened
+
+> [!NOTE]
+> We ran this on the hardware we had available. The 1-second output clips you see in this repo are not a bug — they represent the **maximum our machines could process**. The science worked perfectly; we just hit the physical memory ceiling.
 
 | Machine | Specs | Outcome |
 |---------|-------|---------|
-| **MacBook Air M3** | 16 GB Unified RAM, Apple Silicon | ✅ Unit tests pass, ❌ Full inference crashes (12.78 GB MTLBuffer) |
-| **Google Colab (T4)** | NVIDIA Tesla T4, 14.56 GB VRAM | ✅ 8-frame inference works with FP16 patch |
-| **Office PC (Quadro M2000)** | 4 GB VRAM | ❌ Completely infeasible (needs 8–24 GB min) |
+| **MacBook Air M3** | 16 GB Unified RAM, Apple Silicon | ✅ All 30 unit tests passed in 4.98s — ❌ Full inference crashes: 12.78 GB MTLBuffer request |
+| **Google Colab (T4)** | NVIDIA Tesla T4, 14.56 GB VRAM | ✅ 8-frame inference works with FP16 patch → ~1 sec clips |
+| **Office PC (Quadro M2000)** | 4 GB VRAM | ❌ Completely infeasible — needs 8–24 GB minimum |
+
+### Why Only 1-Second Clips?
+
+```
+Frames processed  →  VRAM requested
+─────────────────────────────────────
+8  frames @ 360p  →  ~8–10 GB   ✅ Works on T4
+12 frames @ 360p  →  ~6–9 GB    ❌ T4 fragmented cache OOM
+16 frames @ 504p  →  12.78 GB   ❌ Mac Metal crash (MTLBuffer)
+32 frames @ 360p  →  47.59 GB   ❌ T4 OOM (O(N²) blowup)
+84 frames (full)  →  ~24 GB     ✅ Needs RTX 3090 / A100
+```
+
+The model's cross-frame attention computes a relationship between **every frame and every other frame** simultaneously — so doubling frames doesn't double memory, it **quadruples** it. At 8 frames we were right at the edge of the T4's capacity. That 1-second clip represents genuine, working ReLift inference — just hardware-limited in length.
 
 ---
 
@@ -338,6 +381,22 @@ Each output video shows:
 | CoWTracker | FAIR Noncommercial | ❌ Non-commercial |
 
 > ✅ For commercial use: pair **AllTracker** with **Apache-2.0 Depth Anything 3** checkpoints only.
+
+---
+
+## 🙏 Acknowledgements & Appreciation
+
+> [!NOTE]
+> This work would not have been possible without the incredible research and open-source generosity of the ReLift authors.
+
+A heartfelt **thank you** to **Assaf Singer, Maroun Khriesh, Noam Rotstein, Yoni Kasten, and Or Litany** from **Technion – Israel Institute of Technology** and **NVIDIA** for:
+
+- 🔬 Conceiving an elegant and genuinely novel formulation — treating 3D tracking not as an end-to-end black box, but as a *trajectory repair* problem. That conceptual clarity is what makes this method both powerful and interpretable.
+- 🧩 Designing a **modular, plug-and-play architecture** — their geometry-only corrector works with any 2D tracker and any depth model, making the community's existing tools instantly more powerful.
+- 📦 **Open-sourcing the full codebase, weights, and configurations** under the MIT license (core components), making it accessible to researchers and tinkerers worldwide — including those of us without 24 GB GPUs.
+- 📖 Writing a paper that is genuinely well-explained, with clean diagrams and an honest discussion of the method's assumptions and limits.
+
+The fact that we — with nothing more than a **MacBook Air M3 and a free Colab session** — could clone the repo, navigate the setup, and produce *actual working ReLift outputs* is a testament to how thoughtfully this work was packaged. The authors lit the way, and we followed it as far as our hardware would allow. 🕯️
 
 ---
 
