@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+env/
+.venv/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Models & large files (reference only, don't commit)
+*.pth
+*.pt
+*.ckpt
+*.pkl
+
+# Temp frames used to build GIF
+frames_input/
+frames_track/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Output data
+*.npz
+*.npy
